@@ -50,9 +50,6 @@ const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
 const statProfit = document.getElementById("stat-profit");
 
-let products = [];
-let editingId = null;
-
 render();
 
 function setupEventListeners() {
