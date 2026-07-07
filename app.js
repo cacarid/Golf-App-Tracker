@@ -1,3 +1,61 @@
+// Supabase Configuration
+const SUPABASE_URL = "https://ycuakahufcdgyusajpxx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_2rXYZXqKjnA41iqxfbI99A_scGGx2a0";
+
+let supabase = null;
+let subscription = null;
+
+// Initialize Supabase when page loads
+window.addEventListener("load", async function() {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  // Load initial products and set up real-time listener
+  await loadProductsFromSupabase();
+  setupRealtimeListener();
+  setupEventListeners();
+});
+
+async function setupRealtimeListener() {
+  // Subscribe to real-time changes
+  if (subscription) subscription.unsubscribe();
+  
+  subscription = supabase
+    .on("postgres_changes", 
+      { event: "*", schema: "public", table: "products" },
+      (payload) => {
+        // Reload products when changes occur
+        loadProductsFromSupabase();
+      }
+    )
+    .subscribe();
+}
+
+async function loadProductsFromSupabase() {
+  try {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+    
+    products = data.map(p => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku || "",
+      cost: p.cost,
+      retail: p.retail,
+      status: p.status || "Active",
+      updatedAt: p.updated_at
+    }));
+    
+    render();
+  } catch (error) {
+    console.error("Error loading products:", error);
+    setMessage("Error loading inventory. Please refresh.");
+  }
+}
+
 const STORAGE_KEY = "price-tracker-products-v1";
 
 const form = document.getElementById("product-form");
@@ -18,15 +76,17 @@ const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
 const statProfit = document.getElementById("stat-profit");
 
-let products = loadProducts();
+let products = [];
 let editingId = null;
 
 render();
 
-form.addEventListener("submit", onSubmit);
-cancelEditBtn.addEventListener("click", exitEditMode);
-searchInput.addEventListener("input", render);
-exportBtn.addEventListener("click", exportToExcel);
+function setupEventListeners() {
+  form.addEventListener("submit", onSubmit);
+  cancelEditBtn.addEventListener("click", exitEditMode);
+  searchInput.addEventListener("input", render);
+  exportBtn.addEventListener("click", exportToExcel);
+}
 
 function onSubmit(event) {
   event.preventDefault();
@@ -55,28 +115,46 @@ function onSubmit(event) {
     return;
   }
 
-  const product = {
-    id: editingId ?? crypto.randomUUID(),
+  const productData = {
     name,
     sku,
     cost,
     retail,
     status,
-    updatedAt: Date.now(),
+    updated_at: Date.now(),
   };
 
   if (editingId) {
-    products = products.map((item) => (item.id === editingId ? product : item));
-    exitEditMode();
+    // Update existing product
+    supabase
+      .from("products")
+      .update(productData)
+      .eq("id", editingId)
+      .then(() => {
+        exitEditMode();
+        form.reset();
+        setMessage("");
+        nameInput.focus();
+      })
+      .catch((error) => {
+        console.error("Error updating product:", error);
+        setMessage("Error updating item. Please try again.");
+      });
   } else {
-    products.unshift(product);
+    // Add new product
+    supabase
+      .from("products")
+      .insert([productData])
+      .then(() => {
+        form.reset();
+        setMessage("");
+        nameInput.focus();
+      })
+      .catch((error) => {
+        console.error("Error adding product:", error);
+        setMessage("Error adding item. Please try again.");
+      });
   }
-
-  saveProducts(products);
-  form.reset();
-  setMessage("");
-  render();
-  nameInput.focus();
 }
 
 function enterEditMode(productId) {
@@ -105,15 +183,20 @@ function exitEditMode() {
 }
 
 function deleteProduct(productId) {
-  products = products.filter((item) => item.id !== productId);
-  saveProducts(products);
-
-  if (editingId === productId) {
-    form.reset();
-    exitEditMode();
-  }
-
-  render();
+  supabase
+    .from("products")
+    .delete()
+    .eq("id", productId)
+    .then(() => {
+      if (editingId === productId) {
+        form.reset();
+        exitEditMode();
+      }
+    })
+    .catch((error) => {
+      console.error("Error deleting product:", error);
+      setMessage("Error deleting item. Please try again.");
+    });
 }
 
 function render() {
