@@ -1,3 +1,28 @@
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBu_jHTbsXa9JRk8yGGldQAHrLW59BQ8HU",
+  authDomain: "golf-inventory-tracker.firebaseapp.com",
+  projectId: "golf-inventory-tracker",
+  storageBucket: "golf-inventory-tracker.firebasestorage.app",
+  messagingSenderId: "777880987409",
+  appId: "1:777880987409:web:d24ef10034328c501eceb0",
+  measurementId: "G-4LQXYDBHVN"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// Enable offline persistence
+db.enablePersistence().catch((err) => {
+  if (err.code === 'failed-precondition') {
+    console.log('Multiple tabs open');
+  } else if (err.code === 'unimplemented') {
+    console.log('Browser does not support persistence');
+  }
+});
+
 const STORAGE_KEY = "price-tracker-products-v1";
 
 const form = document.getElementById("product-form");
@@ -18,15 +43,49 @@ const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
 const statProfit = document.getElementById("stat-profit");
 
-let products = loadProducts();
+let products = [];
 let editingId = null;
+let unsubscribe = null;
 
-render();
+// Initialize app after authentication
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    setupFirestoreListener();
+    setupEventListeners();
+  } else {
+    auth.signInAnonymously().catch((error) => {
+      console.error("Auth error:", error);
+    });
+  }
+});
 
-form.addEventListener("submit", onSubmit);
-cancelEditBtn.addEventListener("click", exitEditMode);
-searchInput.addEventListener("input", render);
-exportBtn.addEventListener("click", exportToExcel);
+function setupEventListeners() {
+  form.addEventListener("submit", onSubmit);
+  cancelEditBtn.addEventListener("click", exitEditMode);
+  searchInput.addEventListener("input", render);
+  exportBtn.addEventListener("click", exportToExcel);
+}
+
+function setupFirestoreListener() {
+  // Set up real-time listener for products collection
+  if (unsubscribe) unsubscribe();
+  
+  unsubscribe = db.collection("products")
+    .orderBy("updatedAt", "desc")
+    .onSnapshot(
+      (snapshot) => {
+        products = [];
+        snapshot.forEach((doc) => {
+          products.push({ ...doc.data(), id: doc.id });
+        });
+        render();
+      },
+      (error) => {
+        console.error("Error loading products:", error);
+        setMessage("Error loading inventory. Please refresh.");
+      }
+    );
+}
 
 function onSubmit(event) {
   event.preventDefault();
@@ -56,7 +115,6 @@ function onSubmit(event) {
   }
 
   const product = {
-    id: editingId ?? crypto.randomUUID(),
     name,
     sku,
     cost,
@@ -65,18 +123,23 @@ function onSubmit(event) {
     updatedAt: Date.now(),
   };
 
-  if (editingId) {
-    products = products.map((item) => (item.id === editingId ? product : item));
-    exitEditMode();
-  } else {
-    products.unshift(product);
-  }
+  const savePromise = editingId
+    ? db.collection("products").doc(editingId).update(product)
+    : db.collection("products").add(product);
 
-  saveProducts(products);
-  form.reset();
-  setMessage("");
-  render();
-  nameInput.focus();
+  savePromise
+    .then(() => {
+      if (editingId) {
+        exitEditMode();
+      }
+      form.reset();
+      setMessage("");
+      nameInput.focus();
+    })
+    .catch((error) => {
+      console.error("Error saving product:", error);
+      setMessage("Error saving. Please try again.");
+    });
 }
 
 function enterEditMode(productId) {
@@ -105,15 +168,16 @@ function exitEditMode() {
 }
 
 function deleteProduct(productId) {
-  products = products.filter((item) => item.id !== productId);
-  saveProducts(products);
+  db.collection("products").doc(productId).delete()
+    .catch((error) => {
+      console.error("Error deleting product:", error);
+      setMessage("Error deleting item. Please try again.");
+    });
 
   if (editingId === productId) {
     form.reset();
     exitEditMode();
   }
-
-  render();
 }
 
 function render() {
