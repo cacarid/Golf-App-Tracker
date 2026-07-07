@@ -45,6 +45,7 @@ const searchInput = document.getElementById("search");
 const exportBtn = document.getElementById("export-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
+const refreshBtn = document.getElementById("refresh-btn");
 
 const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
@@ -60,6 +61,7 @@ function setupEventListeners() {
   exportBtn.addEventListener("click", exportToExcel);
   importBtn.addEventListener("click", () => importFile.click());
   importFile.addEventListener("change", handleImportFile);
+  refreshBtn.addEventListener("click", () => location.reload());
 }
 
 function onSubmit(event) {
