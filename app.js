@@ -11,6 +11,7 @@ const cancelEditBtn = document.getElementById("cancel-edit");
 const tableBody = document.getElementById("product-table-body");
 const emptyState = document.getElementById("empty-state");
 const searchInput = document.getElementById("search");
+const exportBtn = document.getElementById("export-btn");
 
 const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
@@ -24,6 +25,7 @@ render();
 form.addEventListener("submit", onSubmit);
 cancelEditBtn.addEventListener("click", exitEditMode);
 searchInput.addEventListener("input", render);
+exportBtn.addEventListener("click", exportToExcel);
 
 function onSubmit(event) {
   event.preventDefault();
@@ -250,4 +252,55 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function exportToExcel() {
+  if (products.length === 0) {
+    alert("No products to export.");
+    return;
+  }
+
+  const rows = products.map((p) => {
+    const m = calculateMetrics(p.cost, p.retail);
+    return {
+      "Item Name": p.name,
+      "Item Code": p.sku || "",
+      "Cost ($)": p.cost,
+      "Retail ($)": p.retail,
+      "Profit ($)": parseFloat(m.profit.toFixed(2)),
+      "Margin (%)": parseFloat(m.margin.toFixed(2)),
+      "Markup (%)": parseFloat(m.markup.toFixed(2)),
+      "Last Updated": new Date(p.updatedAt).toLocaleDateString("en-US"),
+    };
+  });
+
+  // Summary row
+  const totalProfit = products.reduce((sum, p) => sum + calculateMetrics(p.cost, p.retail).profit, 0);
+  const avgMargin = products.reduce((sum, p) => sum + calculateMetrics(p.cost, p.retail).margin, 0) / products.length;
+
+  rows.push({});
+  rows.push({
+    "Item Name": "INVENTORY TOTALS / AVERAGES",
+    "Item Code": "",
+    "Cost ($)": "",
+    "Retail ($)": "",
+    "Profit ($)": parseFloat(totalProfit.toFixed(2)),
+    "Margin (%)": parseFloat(avgMargin.toFixed(2)),
+    "Markup (%)": "",
+    "Last Updated": "",
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  worksheet["!cols"] = [
+    { wch: 28 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 },
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Divot Deals Products");
+
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `DivotDeals_Products_${date}.xlsx`);
 }

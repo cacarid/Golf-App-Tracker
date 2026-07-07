@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Divot Deals – Product Price Tracker</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="bg-shape bg-shape-1"></div>
@@ -12,9 +13,14 @@
 
   <main class="app-shell">
     <header class="hero">
-      <p class="eyebrow">Divot Deals</p>
-      <h1>Product Price Tracker</h1>
-      <p class="subtitle">Track your cost, retail price, and profitability for each product.</p>
+      <div class="hero-logo-section">
+        <img src="logo.jpg" alt="Divot Deals Logo" class="hero-logo" />
+      </div>
+      <div class="hero-text">
+        <p class="eyebrow">Divot Deals</p>
+        <h1>Golf Inventory Tracker</h1>
+        <p class="subtitle">Track your inventory cost, retail price, and profit margins.</p>
+      </div>
       <a class="fb-link" href="https://www.facebook.com/share/1F1Zz9sPFb/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.99 3.66 9.12 8.44 9.88v-6.99H7.9v-2.89h2.54V9.84c0-2.51 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.89h-2.34v6.99C18.34 21.12 22 17 22 12z"/></svg>
         Follow us on Facebook
@@ -22,17 +28,17 @@
     </header>
 
     <section class="panel form-panel" aria-labelledby="form-title">
-      <h2 id="form-title">Add Product</h2>
+      <h2 id="form-title">Add Inventory Item</h2>
 
       <form id="product-form" novalidate>
         <div class="grid-2">
           <label>
-            Product Name
+            Item Name
             <input id="name" name="name" type="text" placeholder="Example: Pro V1 Sleeve" required />
           </label>
 
           <label>
-            SKU (Optional)
+            Item Code (Optional)
             <input id="sku" name="sku" type="text" placeholder="Example: PV1-3PK" />
           </label>
 
@@ -58,31 +64,34 @@
 
     <section class="stats" aria-label="Summary statistics">
       <article class="stat-card">
-        <h3>Total Products</h3>
+        <h3>Total Inventory Items</h3>
         <p id="stat-products">0</p>
       </article>
       <article class="stat-card">
-        <h3>Average Margin</h3>
+        <h3>Avg Profit Margin</h3>
         <p id="stat-margin">0.00%</p>
       </article>
       <article class="stat-card">
-        <h3>Total Potential Profit</h3>
+        <h3>Total Profit Potential</h3>
         <p id="stat-profit">$0.00</p>
       </article>
     </section>
 
     <section class="panel list-panel" aria-labelledby="list-title">
       <div class="list-header">
-        <h2 id="list-title">Tracked Products</h2>
-        <input id="search" type="search" placeholder="Search by name or SKU" aria-label="Search products" />
+        <h2 id="list-title">Inventory List</h2>
+        <div class="list-controls">
+          <input id="search" type="search" placeholder="Search by name or item code" aria-label="Search items" />
+          <button class="btn btn-export" id="export-btn" type="button">&#8681; Export to Excel</button>
+        </div>
       </div>
 
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Product</th>
-              <th>SKU</th>
+              <th>Item</th>
+              <th>Code</th>
               <th>Cost</th>
               <th>Retail</th>
               <th>Profit</th>
@@ -93,7 +102,7 @@
           </thead>
           <tbody id="product-table-body"></tbody>
         </table>
-        <p id="empty-state" class="empty-state">No products yet. Add your first item above.</p>
+        <p id="empty-state" class="empty-state">No items yet. Add your first inventory item above.</p>
       </div>
     </section>
   </main>
