@@ -5,22 +5,39 @@ const firebaseConfig = {
   projectId: "golf-inventory-tracker",
   storageBucket: "golf-inventory-tracker.firebasestorage.app",
   messagingSenderId: "777880987409",
-  appId: "1:777880987409:web:d24ef10034328c501eceb0",
-  measurementId: "G-4LQXYDBHVN"
+  appId: "1:777880987409:web:d24ef10034328c501eceb0"
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
+let db, auth;
 
-// Enable offline persistence
-db.enablePersistence().catch((err) => {
-  if (err.code === 'failed-precondition') {
-    console.log('Multiple tabs open');
-  } else if (err.code === 'unimplemented') {
-    console.log('Browser does not support persistence');
-  }
+// Wait for Firebase to load
+window.addEventListener('load', function() {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+  
+  // Enable offline persistence
+  db.enablePersistence()
+    .catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.log('Multiple tabs open');
+      } else if (err.code === 'unimplemented') {
+        console.log('Browser does not support persistence');
+      }
+    });
+
+  // Initialize app after authentication
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      setupFirestoreListener();
+      setupEventListeners();
+    } else {
+      auth.signInAnonymously().catch((error) => {
+        console.error("Auth error:", error);
+      });
+    }
+  });
 });
 
 const STORAGE_KEY = "price-tracker-products-v1";
@@ -46,18 +63,6 @@ const statProfit = document.getElementById("stat-profit");
 let products = [];
 let editingId = null;
 let unsubscribe = null;
-
-// Initialize app after authentication
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    setupFirestoreListener();
-    setupEventListeners();
-  } else {
-    auth.signInAnonymously().catch((error) => {
-      console.error("Auth error:", error);
-    });
-  }
-});
 
 function setupEventListeners() {
   form.addEventListener("submit", onSubmit);
