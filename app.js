@@ -1,61 +1,34 @@
-// Supabase Configuration (REST API)
-const SUPABASE_URL = "https://ycuakahufcdgyusajpxx.supabase.co";
-const SUPABASE_KEY = "sb_publishable_2rXYZXqKjnA41iqxfbI99A_scGGx2a0";
-
-let subscription = null;
+// Simple localStorage-based inventory tracker
+const STORAGE_KEY = "price-tracker-products-v1";
+let products = [];
+let editingId = null;
 let pollInterval = null;
 
-// Initialize Supabase when page loads
-window.addEventListener("load", async function() {
-  // Load initial products and set up polling for real-time updates
-  await loadProductsFromSupabase();
-  setupPolling();
+// Load products when page loads
+window.addEventListener("load", function() {
+  loadProductsFromStorage();
   setupEventListeners();
 });
 
-function setupPolling() {
-  // Poll for changes every 2 seconds
-  if (pollInterval) clearInterval(pollInterval);
-  
-  pollInterval = setInterval(async () => {
-    await loadProductsFromSupabase();
-  }, 2000);
-}
-
-async function loadProductsFromSupabase() {
+function loadProductsFromStorage() {
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?order=updated_at.desc`,
-      {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to load products");
-    
-    const data = await response.json();
-    
-    products = data.map(p => ({
-      id: p.id,
-      name: p.name,
-      sku: p.sku || "",
-      cost: p.cost,
-      retail: p.retail,
-      status: p.status || "Active",
-      updatedAt: p.updated_at
-    }));
-    
-    render();
+    const stored = localStorage.getItem(STORAGE_KEY);
+    products = stored ? JSON.parse(stored) : [];
   } catch (error) {
     console.error("Error loading products:", error);
-    // Don't show error on every poll, just log it
+    products = [];
   }
+  render();
 }
 
-const STORAGE_KEY = "price-tracker-products-v1";
+function saveProductsToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  } catch (error) {
+    console.error("Error saving products:", error);
+    setMessage("Error saving item. Storage may be full.");
+  }
+}
 
 const form = document.getElementById("product-form");
 const nameInput = document.getElementById("name");
@@ -114,65 +87,39 @@ function onSubmit(event) {
     return;
   }
 
-  const productData = {
-    name,
-    sku,
-    cost,
-    retail,
-    status,
-    updated_at: Date.now(),
-  };
+  const now = new Date().toISOString();
 
   if (editingId) {
     // Update existing product
-    fetch(
-      `${SUPABASE_URL}/rest/v1/products?id=eq.${editingId}`,
-      {
-        method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productData),
-      }
-    )
-      .then(() => {
-        exitEditMode();
-        form.reset();
-        setMessage("");
-        nameInput.focus();
-        loadProductsFromSupabase();
-      })
-      .catch((error) => {
-        console.error("Error updating product:", error);
-        setMessage("Error updating item. Please try again.");
-      });
+    const product = products.find(p => p.id === editingId);
+    if (product) {
+      product.name = name;
+      product.sku = sku;
+      product.cost = cost;
+      product.retail = retail;
+      product.status = status;
+      product.updatedAt = now;
+    }
+    exitEditMode();
   } else {
     // Add new product
-    fetch(
-      `${SUPABASE_URL}/rest/v1/products`,
-      {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productData),
-      }
-    )
-      .then(() => {
-        form.reset();
-        setMessage("");
-        nameInput.focus();
-        loadProductsFromSupabase();
-      })
-      .catch((error) => {
-        console.error("Error adding product:", error);
-        setMessage("Error adding item. Please try again.");
-      });
+    const newProduct = {
+      id: Date.now().toString(),
+      name,
+      sku,
+      cost,
+      retail,
+      status,
+      updatedAt: now,
+    };
+    products.unshift(newProduct);
   }
+
+  saveProductsToStorage();
+  form.reset();
+  setMessage("");
+  nameInput.focus();
+  render();
 }
 
 function enterEditMode(productId) {
@@ -201,27 +148,15 @@ function exitEditMode() {
 }
 
 function deleteProduct(productId) {
-  fetch(
-    `${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`,
-    {
-      method: "DELETE",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-    }
-  )
-    .then(() => {
-      if (editingId === productId) {
-        form.reset();
-        exitEditMode();
-      }
-      loadProductsFromSupabase();
-    })
-    .catch((error) => {
-      console.error("Error deleting product:", error);
-      setMessage("Error deleting item. Please try again.");
-    });
+  products = products.filter(p => p.id !== productId);
+  
+  if (editingId === productId) {
+    form.reset();
+    exitEditMode();
+  }
+  
+  saveProductsToStorage();
+  render();
 }
 
 function render() {
