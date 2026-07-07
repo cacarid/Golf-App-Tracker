@@ -1,45 +1,3 @@
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBu_jHTbsXa9JRk8yGGldQAHrLW59BQ8HU",
-  authDomain: "golf-inventory-tracker.firebaseapp.com",
-  projectId: "golf-inventory-tracker",
-  storageBucket: "golf-inventory-tracker.firebasestorage.app",
-  messagingSenderId: "777880987409",
-  appId: "1:777880987409:web:d24ef10034328c501eceb0"
-};
-
-// Initialize Firebase
-let db, auth;
-
-// Wait for Firebase to load
-window.addEventListener('load', function() {
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
-  auth = firebase.auth();
-  
-  // Enable offline persistence
-  db.enablePersistence()
-    .catch((err) => {
-      if (err.code === 'failed-precondition') {
-        console.log('Multiple tabs open');
-      } else if (err.code === 'unimplemented') {
-        console.log('Browser does not support persistence');
-      }
-    });
-
-  // Initialize app after authentication
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      setupFirestoreListener();
-      setupEventListeners();
-    } else {
-      auth.signInAnonymously().catch((error) => {
-        console.error("Auth error:", error);
-      });
-    }
-  });
-});
-
 const STORAGE_KEY = "price-tracker-products-v1";
 
 const form = document.getElementById("product-form");
@@ -60,37 +18,15 @@ const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
 const statProfit = document.getElementById("stat-profit");
 
-let products = [];
+let products = loadProducts();
 let editingId = null;
-let unsubscribe = null;
 
-function setupEventListeners() {
-  form.addEventListener("submit", onSubmit);
-  cancelEditBtn.addEventListener("click", exitEditMode);
-  searchInput.addEventListener("input", render);
-  exportBtn.addEventListener("click", exportToExcel);
-}
+render();
 
-function setupFirestoreListener() {
-  // Set up real-time listener for products collection
-  if (unsubscribe) unsubscribe();
-  
-  unsubscribe = db.collection("products")
-    .orderBy("updatedAt", "desc")
-    .onSnapshot(
-      (snapshot) => {
-        products = [];
-        snapshot.forEach((doc) => {
-          products.push({ ...doc.data(), id: doc.id });
-        });
-        render();
-      },
-      (error) => {
-        console.error("Error loading products:", error);
-        setMessage("Error loading inventory. Please refresh.");
-      }
-    );
-}
+form.addEventListener("submit", onSubmit);
+cancelEditBtn.addEventListener("click", exitEditMode);
+searchInput.addEventListener("input", render);
+exportBtn.addEventListener("click", exportToExcel);
 
 function onSubmit(event) {
   event.preventDefault();
@@ -120,6 +56,7 @@ function onSubmit(event) {
   }
 
   const product = {
+    id: editingId ?? crypto.randomUUID(),
     name,
     sku,
     cost,
@@ -128,23 +65,18 @@ function onSubmit(event) {
     updatedAt: Date.now(),
   };
 
-  const savePromise = editingId
-    ? db.collection("products").doc(editingId).update(product)
-    : db.collection("products").add(product);
+  if (editingId) {
+    products = products.map((item) => (item.id === editingId ? product : item));
+    exitEditMode();
+  } else {
+    products.unshift(product);
+  }
 
-  savePromise
-    .then(() => {
-      if (editingId) {
-        exitEditMode();
-      }
-      form.reset();
-      setMessage("");
-      nameInput.focus();
-    })
-    .catch((error) => {
-      console.error("Error saving product:", error);
-      setMessage("Error saving. Please try again.");
-    });
+  saveProducts(products);
+  form.reset();
+  setMessage("");
+  render();
+  nameInput.focus();
 }
 
 function enterEditMode(productId) {
@@ -173,16 +105,15 @@ function exitEditMode() {
 }
 
 function deleteProduct(productId) {
-  db.collection("products").doc(productId).delete()
-    .catch((error) => {
-      console.error("Error deleting product:", error);
-      setMessage("Error deleting item. Please try again.");
-    });
+  products = products.filter((item) => item.id !== productId);
+  saveProducts(products);
 
   if (editingId === productId) {
     form.reset();
     exitEditMode();
   }
+
+  render();
 }
 
 function render() {
