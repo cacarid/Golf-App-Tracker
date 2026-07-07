@@ -1,43 +1,42 @@
-// Supabase Configuration
+// Supabase Configuration (REST API)
 const SUPABASE_URL = "https://ycuakahufcdgyusajpxx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_2rXYZXqKjnA41iqxfbI99A_scGGx2a0";
 
-let supabase = null;
 let subscription = null;
+let pollInterval = null;
 
 // Initialize Supabase when page loads
 window.addEventListener("load", async function() {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  
-  // Load initial products and set up real-time listener
+  // Load initial products and set up polling for real-time updates
   await loadProductsFromSupabase();
-  setupRealtimeListener();
+  setupPolling();
   setupEventListeners();
 });
 
-async function setupRealtimeListener() {
-  // Subscribe to real-time changes
-  if (subscription) subscription.unsubscribe();
+function setupPolling() {
+  // Poll for changes every 2 seconds
+  if (pollInterval) clearInterval(pollInterval);
   
-  subscription = supabase
-    .on("postgres_changes", 
-      { event: "*", schema: "public", table: "products" },
-      (payload) => {
-        // Reload products when changes occur
-        loadProductsFromSupabase();
-      }
-    )
-    .subscribe();
+  pollInterval = setInterval(async () => {
+    await loadProductsFromSupabase();
+  }, 2000);
 }
 
 async function loadProductsFromSupabase() {
   try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("updated_at", { ascending: false });
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?order=updated_at.desc`,
+      {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+      }
+    );
 
-    if (error) throw error;
+    if (!response.ok) throw new Error("Failed to load products");
+    
+    const data = await response.json();
     
     products = data.map(p => ({
       id: p.id,
@@ -52,7 +51,7 @@ async function loadProductsFromSupabase() {
     render();
   } catch (error) {
     console.error("Error loading products:", error);
-    setMessage("Error loading inventory. Please refresh.");
+    // Don't show error on every poll, just log it
   }
 }
 
@@ -126,15 +125,24 @@ function onSubmit(event) {
 
   if (editingId) {
     // Update existing product
-    supabase
-      .from("products")
-      .update(productData)
-      .eq("id", editingId)
+    fetch(
+      `${SUPABASE_URL}/rest/v1/products?id=eq.${editingId}`,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(productData),
+      }
+    )
       .then(() => {
         exitEditMode();
         form.reset();
         setMessage("");
         nameInput.focus();
+        loadProductsFromSupabase();
       })
       .catch((error) => {
         console.error("Error updating product:", error);
@@ -142,13 +150,23 @@ function onSubmit(event) {
       });
   } else {
     // Add new product
-    supabase
-      .from("products")
-      .insert([productData])
+    fetch(
+      `${SUPABASE_URL}/rest/v1/products`,
+      {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(productData),
+      }
+    )
       .then(() => {
         form.reset();
         setMessage("");
         nameInput.focus();
+        loadProductsFromSupabase();
       })
       .catch((error) => {
         console.error("Error adding product:", error);
@@ -183,15 +201,22 @@ function exitEditMode() {
 }
 
 function deleteProduct(productId) {
-  supabase
-    .from("products")
-    .delete()
-    .eq("id", productId)
+  fetch(
+    `${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`,
+    {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    }
+  )
     .then(() => {
       if (editingId === productId) {
         form.reset();
         exitEditMode();
       }
+      loadProductsFromSupabase();
     })
     .catch((error) => {
       console.error("Error deleting product:", error);
