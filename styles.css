@@ -418,6 +418,11 @@ th {
   color: #155724;
 }
 
+.status-badge.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
 .status-badge.status-sold {
   background: #f8d7da;
   color: #721c24;
