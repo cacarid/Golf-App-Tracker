@@ -395,17 +395,32 @@ function handleImportFile(event) {
       );
 
       if (action) {
-        // Append to existing products
-        products = [...products, ...importedProducts];
+        // Append to existing products, filtering out duplicates
+        const newProducts = importedProducts.filter(
+          (imported) => !products.some(
+            (existing) => existing.name === imported.name && existing.sku === imported.sku
+          )
+        );
+
+        const duplicateCount = importedProducts.length - newProducts.length;
+        products = [...products, ...newProducts];
+
+        if (duplicateCount > 0) {
+          setMessage(
+            `Imported ${newProducts.length} product(s). Skipped ${duplicateCount} duplicate(s).`
+          );
+        } else {
+          setMessage(`Successfully imported ${newProducts.length} product(s)!`);
+        }
       } else {
         // Replace all products
         products = importedProducts;
+        setMessage(`Successfully imported ${importedProducts.length} product(s)!`);
       }
 
       saveProductsToStorage();
       form.reset();
       render();
-      setMessage(`Successfully imported ${importedProducts.length} product(s)!`);
 
       // Clear the file input
       importFile.value = "";
