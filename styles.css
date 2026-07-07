@@ -346,6 +346,23 @@ select:focus {
   background: var(--golf-light-green);
 }
 
+.btn-import {
+  background: #556b2f;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.52rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.btn-import:hover {
+  background: #6d8c3a;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

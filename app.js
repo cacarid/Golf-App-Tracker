@@ -43,6 +43,8 @@ const tableBody = document.getElementById("product-table-body");
 const emptyState = document.getElementById("empty-state");
 const searchInput = document.getElementById("search");
 const exportBtn = document.getElementById("export-btn");
+const importBtn = document.getElementById("import-btn");
+const importFile = document.getElementById("import-file");
 
 const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
@@ -58,6 +60,8 @@ function setupEventListeners() {
   cancelEditBtn.addEventListener("click", exitEditMode);
   searchInput.addEventListener("input", render);
   exportBtn.addEventListener("click", exportToExcel);
+  importBtn.addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", handleImportFile);
 }
 
 function onSubmit(event) {
@@ -355,4 +359,65 @@ function exportToExcel() {
 
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(workbook, `DivotDeals_Products_${date}.xlsx`);
+}
+
+function handleImportFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+      // Filter out empty rows and summary rows
+      const importedProducts = rows
+        .filter((row) => row["Item Name"] && row["Item Name"] !== "INVENTORY TOTALS / AVERAGES")
+        .map((row) => ({
+          id: Date.now().toString() + Math.random(),
+          name: String(row["Item Name"] || "").trim(),
+          sku: String(row["Item Code"] || "").trim(),
+          cost: parseFloat(row["Cost ($)"] || 0) || 0,
+          retail: parseFloat(row["Retail ($)"] || 0) || 0,
+          status: String(row["Status"] || "Active").trim(),
+          updatedAt: new Date().toISOString(),
+        }))
+        .filter((p) => p.name); // Only keep products with names
+
+      if (importedProducts.length === 0) {
+        setMessage("No valid products found in file.");
+        return;
+      }
+
+      // Ask user if they want to replace or append
+      const action = confirm(
+        `Import ${importedProducts.length} products?\n\nOK = Add to existing inventory\nCancel = Replace all inventory`
+      );
+
+      if (action) {
+        // Append to existing products
+        products = [...products, ...importedProducts];
+      } else {
+        // Replace all products
+        products = importedProducts;
+      }
+
+      saveProductsToStorage();
+      form.reset();
+      render();
+      setMessage(`Successfully imported ${importedProducts.length} product(s)!`);
+
+      // Clear the file input
+      importFile.value = "";
+    } catch (error) {
+      console.error("Error importing file:", error);
+      setMessage("Error importing file. Please check the format.");
+      importFile.value = "";
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
 }
