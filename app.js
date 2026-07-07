@@ -48,6 +48,7 @@ const importFile = document.getElementById("import-file");
 
 const statProducts = document.getElementById("stat-products");
 const statMargin = document.getElementById("stat-margin");
+const statSoldProfit = document.getElementById("stat-sold-profit");
 const statProfit = document.getElementById("stat-profit");
 
 render();
@@ -208,18 +209,25 @@ function render() {
 function renderStats(items) {
   const totalProducts = items.length;
   let totalProfit = 0;
+  let soldProfit = 0;
   let marginTotal = 0;
 
   for (const item of items) {
     const metrics = calculateMetrics(item.cost, item.retail);
     totalProfit += metrics.profit;
     marginTotal += metrics.margin;
+
+    // Add to sold profit only if status is "Sold"
+    if (item.status === "Sold") {
+      soldProfit += metrics.profit;
+    }
   }
 
   const averageMargin = totalProducts > 0 ? marginTotal / totalProducts : 0;
 
   statProducts.textContent = String(totalProducts);
   statMargin.textContent = formatPercent(averageMargin);
+  statSoldProfit.textContent = formatMoney(soldProfit);
   statProfit.textContent = formatMoney(totalProfit);
 }
 
