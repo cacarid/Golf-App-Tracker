@@ -51,7 +51,14 @@
             Retail Price ($)
             <input id="retail" name="retail" type="number" min="0" step="0.01" placeholder="0.00" required />
           </label>
-        </div>
+
+          <label>
+            Status
+            <select id="status" name="status" required>
+              <option value="Active">Active</option>
+              <option value="Sold">Sold</option>
+            </select>
+          </label>
 
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" id="submit-btn">Save Product</button>
@@ -97,6 +104,7 @@
               <th>Profit</th>
               <th>Margin</th>
               <th>Markup</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>

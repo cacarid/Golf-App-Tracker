@@ -5,6 +5,7 @@ const nameInput = document.getElementById("name");
 const skuInput = document.getElementById("sku");
 const costInput = document.getElementById("cost");
 const retailInput = document.getElementById("retail");
+const statusInput = document.getElementById("status");
 const messageEl = document.getElementById("form-message");
 const submitBtn = document.getElementById("submit-btn");
 const cancelEditBtn = document.getElementById("cancel-edit");
@@ -34,6 +35,7 @@ function onSubmit(event) {
   const sku = skuInput.value.trim();
   const cost = parseMoney(costInput.value);
   const retail = parseMoney(retailInput.value);
+  const status = statusInput.value;
 
   if (!name) {
     setMessage("Please enter a product name.");
@@ -59,6 +61,7 @@ function onSubmit(event) {
     sku,
     cost,
     retail,
+    status,
     updatedAt: Date.now(),
   };
 
@@ -87,6 +90,7 @@ function enterEditMode(productId) {
   skuInput.value = product.sku;
   costInput.value = product.cost.toFixed(2);
   retailInput.value = product.retail.toFixed(2);
+  statusInput.value = product.status;
   submitBtn.textContent = "Update Product";
   cancelEditBtn.hidden = false;
   setMessage("");
@@ -132,6 +136,7 @@ function render() {
       <td>${formatMoney(metrics.profit)}</td>
       <td>${formatPercent(metrics.margin)}</td>
       <td>${formatPercent(metrics.markup)}</td>
+      <td><span class="status-badge status-${product.status.toLowerCase()}">${product.status}</span></td>
       <td>
         <div class="row-actions">
           <button class="btn btn-secondary" type="button" data-action="edit" data-id="${product.id}">Edit</button>
@@ -211,7 +216,8 @@ function isValidProduct(value) {
     typeof value.name === "string" &&
     typeof value.sku === "string" &&
     Number.isFinite(Number(value.cost)) &&
-    Number.isFinite(Number(value.retail))
+    Number.isFinite(Number(value.retail)) &&
+    typeof value.status === "string"
   );
 }
 
@@ -222,6 +228,7 @@ function normalizeProduct(value) {
     sku: value.sku.trim(),
     cost: Number(value.cost),
     retail: Number(value.retail),
+    status: value.status || "Active",
     updatedAt: Number(value.updatedAt) || Date.now(),
   };
 }
@@ -270,6 +277,7 @@ function exportToExcel() {
       "Profit ($)": parseFloat(m.profit.toFixed(2)),
       "Margin (%)": parseFloat(m.margin.toFixed(2)),
       "Markup (%)": parseFloat(m.markup.toFixed(2)),
+      "Status": p.status,
       "Last Updated": new Date(p.updatedAt).toLocaleDateString("en-US"),
     };
   });
@@ -287,6 +295,7 @@ function exportToExcel() {
     "Profit ($)": parseFloat(totalProfit.toFixed(2)),
     "Margin (%)": parseFloat(avgMargin.toFixed(2)),
     "Markup (%)": "",
+    "Status": "",
     "Last Updated": "",
   });
 
@@ -295,7 +304,7 @@ function exportToExcel() {
   // Column widths
   worksheet["!cols"] = [
     { wch: 28 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
-    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 16 },
   ];
 
   const workbook = XLSX.utils.book_new();
